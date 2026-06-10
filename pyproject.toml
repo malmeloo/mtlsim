@@ -1,0 +1,19 @@
+[project]
+name = "mtlsim"
+version = "0.1.0"
+description = ""
+requires-python = ">=3.13"
+dependencies = [
+    "click>=8.4.1",
+    "dnspython>=2.8.0",
+    "numpy>=2.4.6",
+    "polars>=1.41.2",
+    "pydantic>=2.13.4",
+]
+
+[project.scripts]
+mtlsim = "mtlsim:__main__.cli"
+
+[build-system]
+requires = ["uv_build>=0.11.0,<0.12.0"]
+build-backend = "uv_build"
