@@ -29,7 +29,7 @@ class EventLogger:
     @classmethod
     def new(cls, base_path: Path, tag: str) -> Self:
         timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-        file = base_path / f"{tag}-{timestamp}.jsonl"
+        file = base_path / f"{tag}_{timestamp}.jsonl"
         return cls(file)
 
     def _write_loop(self):
