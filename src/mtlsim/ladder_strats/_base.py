@@ -31,7 +31,7 @@ class BaseLadderStrategy(ABC):
 
     def __init__(self) -> None:
         # rrset type and label to ladder ID and leaf index
-        self._rrset_to_leaf: dict[str, dict[str, tuple[str, int]]] = defaultdict(dict)
+        self._rrset_to_leaf: dict[tuple[str, str], tuple[str, int]] = {}
         self._ladder_sizes: dict[str, int] = defaultdict(int)
 
     @property
@@ -47,9 +47,8 @@ class BaseLadderStrategy(ABC):
         Get the set of active rrsets in the strategy.
         """
         rrsets: list[RRSet] = []
-        for rrset_type, label_to_leaf in self._rrset_to_leaf.items():
-            for rrset_label in label_to_leaf.keys():
-                rrsets.append(RRSet(type=rrset_type, label=rrset_label))
+        for rrset_type, rrset_label in self._rrset_to_leaf.keys():
+            rrsets.append(RRSet(type=rrset_type, label=rrset_label))
 
         return rrsets
 
@@ -67,15 +66,12 @@ class BaseLadderStrategy(ABC):
             return None
 
         if rrset_type is None:
-            rrset_type = random.choice(list(self._rrset_to_leaf.keys()))
+            # perf optimization
+            return random.choice(list(self._rrset_to_leaf.keys()))
 
-        candidates = self._rrset_to_leaf.get(rrset_type, {})
-        if not candidates:
-            return None
-
-        label = random.choice(list(candidates.keys()))
-
-        return (rrset_type, label)
+        return random.choice(
+            [rrset for rrset in self._rrset_to_leaf.keys() if rrset_type == rrset[0]]
+        )
 
     def get_rrset_location(
         self, rrset_type: str, rrset_label: str
@@ -83,7 +79,7 @@ class BaseLadderStrategy(ABC):
         """
         Get ladder ID and leaf index for a given rrset, if it exists.
         """
-        return self._rrset_to_leaf.get(rrset_type, {}).get(rrset_label, None)
+        return self._rrset_to_leaf.get((rrset_type, rrset_label), None)
 
     @abstractmethod
     def decide(
@@ -101,7 +97,7 @@ class BaseLadderStrategy(ABC):
         Update rrsets in the strategy's internal state. This should be called after rrsets have been added to a ladder.
         """
         for rrset, leaf_index in zip(rrsets, leaf_indices):
-            self._rrset_to_leaf[rrset.type][rrset.label] = (sid, leaf_index)
+            self._rrset_to_leaf[(rrset.type, rrset.label)] = (sid, leaf_index)
             self._ladder_sizes[sid] += 1
 
     def remove_rrsets(self, rrsets: list[RRSet]) -> None:
@@ -109,4 +105,4 @@ class BaseLadderStrategy(ABC):
         Remove rrsets from the strategy's internal state. This should be called when rrsets are deleted from the zone.
         """
         for rrset in rrsets:
-            _ = self._rrset_to_leaf[rrset.type].pop(rrset.label, None)
+            _ = self._rrset_to_leaf.pop((rrset.type, rrset.label), None)
