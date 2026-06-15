@@ -9,7 +9,7 @@ from .zone import DNSZoneLadderAddEvent, DNSZoneRRSetAddEvent
 
 class AnalysisResult(BaseModel):
     run_name: str
-    timestamp: str | None
+    timestamp: datetime | None
 
     time_between_fullsig: list[float]
     queries_between_fullsig: list[int]
@@ -43,10 +43,12 @@ def _parse_line(line: str) -> Event:
     raise ValueError(f"Could not parse line into any known event type: {line}")
 
 
-def analyze_log(log_file: Path) -> AnalysisResult:
+def analyze_log(
+    log_file: Path, run_name: str, timestamp: datetime | None,
+) -> AnalysisResult:
     result = AnalysisResult(
-        run_name=log_file.stem,
-        timestamp=None,
+        run_name=run_name,
+        timestamp=timestamp,
         time_between_fullsig=[],
         queries_between_fullsig=[],
         ladder_sizes={},

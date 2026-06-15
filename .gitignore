@@ -1,2 +1,7 @@
 __pycache__/
 .direnv/
+
+input_files/
+inputs/
+logs/
+output/

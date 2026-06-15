@@ -1,7 +1,6 @@
 import logging
 from datetime import datetime
 from pathlib import Path
-from re import M
 
 import click
 
@@ -325,12 +324,30 @@ def analyze(log_files: list[Path], out_dir: Path):
     for run_name, (file, timestamp) in sorted(process_files.items()):
         print(f"Analyzing run '{run_name}' (timestamp: {timestamp})...")
 
-        analysis = analyze_log(file)
+        analysis = analyze_log(file, run_name, timestamp)
         output = out_dir / f"{run_name}.json"
 
         print(f"  - Analysis complete, saving results to {output}")
         output.parent.mkdir(parents=True, exist_ok=True)
         _ = output.write_text(analysis.model_dump_json(indent=2))
+
+        fullsig_time_avg = (
+            sum(analysis.time_between_fullsig) / len(analysis.time_between_fullsig)
+            if analysis.time_between_fullsig
+            else 0
+        )
+        fullsig_query_avg = (
+            sum(analysis.queries_between_fullsig)
+            / len(analysis.queries_between_fullsig)
+            if analysis.queries_between_fullsig
+            else 0
+        )
+        print(
+            f"  - Average time between full signature fetches: {fullsig_time_avg:.2f} seconds"
+        )
+        print(
+            f"  - Average queries between full signature fetches: {fullsig_query_avg:.2f} queries"
+        )
 
 
 if __name__ == "__main__":
