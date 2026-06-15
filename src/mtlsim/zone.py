@@ -41,8 +41,8 @@ class DNSZone:
     def ladder_sizes(self) -> dict[str, int]:
         return {sid: ladder.size for sid, ladder in self._ladders.items()}
 
-    def get_random_rrset(self, rrset_type: str | None = None) -> tuple[str, str] | None:
-        return self._ladder_strat.get_random_rrset(rrset_type)
+    def get_random_rrset(self, rrset_type: str | None = None, seed: str | None = None) -> tuple[str, str] | None:
+        return self._ladder_strat.get_random_rrset(rrset_type, seed)
 
     def update_rrsets(
         self, rrsets: list[RRSet], timestamp: datetime | None = None

@@ -116,18 +116,29 @@ def generate_resolver_queries(
     exp_rate: float,
     seed: int,
     query_type: str | None,
+    query_seeds: list[str] | None = None,
 ) -> Generator[DNSQueryEvent, None, None]:
-    rng = np.random.default_rng(seed)
+    query_seeds = query_seeds or []
+
+    # two rng's so we can sample from the query_seeds without affecting the inter-arrival times
+    rng_0 = np.random.default_rng(seed)
+    rng_1 = np.random.default_rng(seed + 1)
 
     cur_time = start
     while cur_time < end:
         # Exponentially distributed inter-arrival times
-        inter_arrival = rng.exponential(1 / exp_rate)
+        inter_arrival = rng_0.exponential(1 / exp_rate)
         cur_time += timedelta(seconds=inter_arrival)
+
+        # don't use rng.choice, it's very slow for some reason
+        # (probably converts to numpy array first?)
+        query_seed_i = rng_1.integers(0, len(query_seeds))
+        query_seed = query_seeds[query_seed_i] if query_seeds else None
 
         yield DNSQueryEvent(
             timestamp=cur_time,
-            type="random",
+            type="random" if not query_seed else "random_seeded",
             query_name=None,
             query_type=query_type,
+            seed=query_seed,
         )

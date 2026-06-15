@@ -63,9 +63,10 @@ class DNSResolver:
         self,
         timestamp: datetime | None = None,
         query_type: str | None = None,
+        seed: str | None = None,
     ) -> DNSQueryResponse:
         """Query a random rrset of the given type (or any type if query_type is None)."""
-        rrset = self._zone.get_random_rrset(query_type)
+        rrset = self._zone.get_random_rrset(query_type, seed)
         if rrset is None:
             return DNSQueryResponse.ERR_NOT_FOUND
 

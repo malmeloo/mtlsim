@@ -42,6 +42,10 @@ class BaseLadderStrategy(ABC):
         self._rrsets_by_type: dict[str, list[tuple[str, str]]] = defaultdict(list)
         self._type_list_index: dict[tuple[str, str], int] = {}
 
+        # mapping from seed to rrset and vice versa for seeded random selection
+        self._seed_to_rrset: dict[str, tuple[str, str]] = {}
+        self._rrset_to_seed: dict[tuple[str, str], str] = {}
+
     @property
     def is_empty(self) -> bool:
         """
@@ -62,14 +66,36 @@ class BaseLadderStrategy(ABC):
         """
         return self._ladder_sizes[sid]
 
-    def get_random_rrset(self, rrset_type: str | None = None) -> tuple[str, str] | None:
+    def get_random_rrset(
+        self, rrset_type: str | None = None, seed: str | None = None
+    ) -> tuple[str, str] | None:
         """
         Get a random active rrset of the given type, as a (type, label) tuple. Returns None if there are no active rrsets of the given type.
         """
-        if rrset_type is None:
-            return random.choice(self._all_rrsets) if self._all_rrsets else None
-        bucket = self._rrsets_by_type.get(rrset_type)
-        return random.choice(bucket) if bucket else None
+        # get from cache if seed is provided
+        if seed is not None and (rrset := self._seed_to_rrset.get(seed, None)):
+            if rrset_type is None or rrset[0] == rrset_type:
+                return rrset
+            # else: seed is associated with an rrset of the wrong type, ignore it
+
+        if seed is not None:
+            random.seed(seed)
+
+        bucket = (
+            self._all_rrsets
+            if rrset_type is None
+            else self._rrsets_by_type.get(rrset_type)
+        )
+        rrset = random.choice(bucket) if bucket else None
+        if rrset is None:
+            return None
+
+        if seed is not None:
+            # cache the seed for future lookups
+            self._seed_to_rrset[seed] = rrset
+            self._rrset_to_seed[rrset] = seed
+
+        return rrset
 
     def get_rrset_location(
         self, rrset_type: str, rrset_label: str
@@ -123,7 +149,7 @@ class BaseLadderStrategy(ABC):
             # swap-and-pop from flat list
             idx = self._all_rrsets_index.pop(key)
             last = self._all_rrsets[-1]
-            self._all_rrsets.pop()  # pop first
+            _ = self._all_rrsets.pop()  # pop first
             if idx < len(
                 self._all_rrsets
             ):  # only update if key wasn't the last element
@@ -134,10 +160,15 @@ class BaseLadderStrategy(ABC):
             bucket = self._rrsets_by_type[rrset.type]
             idx = self._type_list_index.pop(key)
             last = bucket[-1]
-            bucket.pop()  # pop first
+            _ = bucket.pop()  # pop first
             if idx < len(bucket):  # only update if key wasn't the last element
                 bucket[idx] = last
                 self._type_list_index[last] = idx
+
+            # remove from seed cache if it exists
+            seed = self._rrset_to_seed.pop(key, None)
+            if seed is not None:
+                _ = self._seed_to_rrset.pop(seed, None)
 
             if not bucket:
                 del self._rrsets_by_type[rrset.type]

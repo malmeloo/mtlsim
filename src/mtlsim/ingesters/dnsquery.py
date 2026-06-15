@@ -9,11 +9,13 @@ class DNSQueryEvent(BaseEventModel):
     Not the ideal way to communicate this, but:
     - given: the event contains the query name and type
     - random: the event contains a record type, and the query name is randomly generated from the zone
+    - random_seeded: same as random, but the random generator is seeded for reproducibility
     """
 
-    type: Literal["given", "random"] = "given"
+    type: Literal["given", "random", "random_seeded"] = "given"
     query_name: str | None
     query_type: str | None
+    seed: str | None
 
 
 class DNSQueryEventRandom(BaseEventModel):

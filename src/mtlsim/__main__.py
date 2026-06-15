@@ -131,6 +131,11 @@ def simulate(
                 _resp = resolver.query_random(
                     event.timestamp, query_type=event.query_type
                 )
+            elif event.type == "random_seeded":
+                assert event.seed is not None
+                _resp = resolver.query_random(
+                    event.timestamp, query_type=event.query_type, seed=event.seed
+                )
         else:
             print(f"Unknown event type: {type(event)}")
             continue
@@ -236,6 +241,12 @@ def ingest_zone_diffs(diff_file: Path, out_file: Path) -> None:
     help="Random seed for query generation. Default is 42.",
 )
 @click.option(
+    "--query-seed-file",
+    type=Path,
+    required=False,
+    help="Path to a file containing seeds for random query generation, one seed per line.",
+)
+@click.option(
     "--query-type",
     type=str,
     default=None,
@@ -253,17 +264,34 @@ def generate_queries(
     end: datetime,
     exp_rate: float,
     seed: int,
+    query_seed_file: Path | None,
     query_type: str | None,
     out_file: Path,
 ):
     """
-    Generate synthetic DNS query events based on zone update events. This can be used to create input data for the simulator.
+    Generate synthetic DNS query events. This can be used to create input data for the simulator.
+
+    The specified seed is used to generate exponentially distributed inter-arrival times for the queries. The selection of query names (and types) is not seeded and fully randomized at runtime, unless a query seed file is provided.
+
+    The query seed file can be used to provide a list of seeds for random query generation, one seed per line. If provided, this command will randomly select a seed from this list for each generated query, allowing for reproducible query generation.
+    This random selection of seeds is seeded with the specified seed, so the same query seed file and seed will always produce the same simulated queries.
+    Seeds can be specified in the query seed file multiple times to adjust the probability of a particular seed being selected. For example, if a seed is specified twice, it will be twice as likely to be selected as a seed that is specified only once.
+    Note that a specific query seed does not guarantee that the same query name will be generated, as the query name is still randomly generated based on the active rrsets in the zone at the time of the query.
     """
     from mtlsim.ingest import generate_resolver_queries
 
+    query_seeds: list[str] = []
+    if query_seed_file:
+        with query_seed_file.open() as f:
+            for line in f.readlines():
+                if seed_value := line.strip():
+                    query_seeds.append(seed_value)
+
     i = 0
     with out_file.open("w") as f:
-        for event in generate_resolver_queries(start, end, exp_rate, seed, query_type):
+        for event in generate_resolver_queries(
+            start, end, exp_rate, seed, query_type, query_seeds
+        ):
             _ = f.write(event.model_dump_json() + "\n")
 
             if i > 0 and i % 10000 == 0:
