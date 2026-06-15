@@ -34,23 +34,27 @@ class BaseLadderStrategy(ABC):
         self._rrset_to_leaf: dict[tuple[str, str], tuple[str, int]] = {}
         self._ladder_sizes: dict[str, int] = defaultdict(int)
 
+        # flat list for O(1) uniform random sampling across all rrsets
+        self._all_rrsets: list[tuple[str, str]] = []
+        self._all_rrsets_index: dict[tuple[str, str], int] = {}
+
+        # per-type list for O(1) uniform random sampling by type
+        self._rrsets_by_type: dict[str, list[tuple[str, str]]] = defaultdict(list)
+        self._type_list_index: dict[tuple[str, str], int] = {}
+
     @property
     def is_empty(self) -> bool:
         """
         Check if the strategy has no active rrsets.
         """
-        return not any(self._rrset_to_leaf.values())
+        return not self._all_rrsets
 
     @property
     def active_rrsets(self) -> list[RRSet]:
         """
         Get the set of active rrsets in the strategy.
         """
-        rrsets: list[RRSet] = []
-        for rrset_type, rrset_label in self._rrset_to_leaf.keys():
-            rrsets.append(RRSet(type=rrset_type, label=rrset_label))
-
-        return rrsets
+        return [RRSet(type=t, label=l) for t, l in self._all_rrsets]
 
     def get_ladder_size(self, sid: str) -> int:
         """
@@ -62,16 +66,10 @@ class BaseLadderStrategy(ABC):
         """
         Get a random active rrset of the given type, as a (type, label) tuple. Returns None if there are no active rrsets of the given type.
         """
-        if self.is_empty:
-            return None
-
         if rrset_type is None:
-            # perf optimization
-            return random.choice(list(self._rrset_to_leaf.keys()))
-
-        return random.choice(
-            [rrset for rrset in self._rrset_to_leaf.keys() if rrset_type == rrset[0]]
-        )
+            return random.choice(self._all_rrsets) if self._all_rrsets else None
+        bucket = self._rrsets_by_type.get(rrset_type)
+        return random.choice(bucket) if bucket else None
 
     def get_rrset_location(
         self, rrset_type: str, rrset_label: str
@@ -97,12 +95,49 @@ class BaseLadderStrategy(ABC):
         Update rrsets in the strategy's internal state. This should be called after rrsets have been added to a ladder.
         """
         for rrset, leaf_index in zip(rrsets, leaf_indices):
-            self._rrset_to_leaf[(rrset.type, rrset.label)] = (sid, leaf_index)
-            self._ladder_sizes[sid] += 1
+            key = (rrset.type, rrset.label)
+            self._rrset_to_leaf[key] = (sid, leaf_index)
+
+            if key not in self._all_rrsets_index:
+                # add to flat index
+                self._all_rrsets_index[key] = len(self._all_rrsets)
+                self._all_rrsets.append(key)
+
+                # add to per-type index
+                bucket = self._rrsets_by_type[rrset.type]
+                self._type_list_index[key] = len(bucket)
+                bucket.append(key)
+
+        self._ladder_sizes[sid] += 1
 
     def remove_rrsets(self, rrsets: list[RRSet]) -> None:
         """
-        Remove rrsets from the strategy's internal state. This should be called when rrsets are deleted from the zone.
+        Remove rrsets from the strategy's internal state. This should be called when rrsets
+        are deleted from the zone.
         """
         for rrset in rrsets:
-            _ = self._rrset_to_leaf.pop((rrset.type, rrset.label), None)
+            key = (rrset.type, rrset.label)
+            if self._rrset_to_leaf.pop(key, None) is None:
+                continue
+
+            # swap-and-pop from flat list
+            idx = self._all_rrsets_index.pop(key)
+            last = self._all_rrsets[-1]
+            self._all_rrsets.pop()  # pop first
+            if idx < len(
+                self._all_rrsets
+            ):  # only update if key wasn't the last element
+                self._all_rrsets[idx] = last
+                self._all_rrsets_index[last] = idx
+
+            # swap-and-pop from per-type list
+            bucket = self._rrsets_by_type[rrset.type]
+            idx = self._type_list_index.pop(key)
+            last = bucket[-1]
+            bucket.pop()  # pop first
+            if idx < len(bucket):  # only update if key wasn't the last element
+                bucket[idx] = last
+                self._type_list_index[last] = idx
+
+            if not bucket:
+                del self._rrsets_by_type[rrset.type]
