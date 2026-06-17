@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import click
@@ -102,7 +102,10 @@ def simulate(
 
     zone = DNSZone(strat, logger)
     resolver = DNSResolver(zone, logger)
-    i = 0
+
+    last_update = datetime(1970, 1, 1)
+    dt_start = datetime.now()
+    event_count = 0
 
     print("Simulator is running!")
     for i, event in enumerate(
@@ -112,8 +115,10 @@ def simulate(
             allow_missing_timestamps=live,
         )
     ):
-        if i > 0 and i % 100 == 0:
-            print(f"Processed {i} events (current timestamp: {event.timestamp})...")
+        event_count += 1
+        if (now := datetime.now()) - last_update > timedelta(seconds=30):
+            print(f"Update: processed {i} events (event timestamp: {event.timestamp})")
+            last_update = now
 
         if isinstance(event, DNSZoneUpdateEvent):
             removed_rrsets = event.get_removed_rrsets()
@@ -140,7 +145,9 @@ def simulate(
             print(f"Unknown event type: {type(event)}")
             continue
 
-    print(f"Simulator done, processed {i} events.")
+    print(
+        f"Simulator done, processed {event_count} events in {datetime.now() - dt_start}."
+    )
     print("Waiting for logger buffer to flush...")
     logger.wait()
 
