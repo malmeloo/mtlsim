@@ -2,6 +2,8 @@ import logging
 from datetime import datetime
 from typing import Literal, final, overload
 
+from mtlsim.ladder_strats._base import StrategyDecisionDeleteLadder
+
 from .events import Event, EventLogger
 from .ladder_strats import (
     BaseLadderStrategy,
@@ -16,6 +18,11 @@ logger = logging.getLogger(__name__)
 
 class DNSZoneLadderAddEvent(Event):
     type: Literal["new_ladder"] = "new_ladder"
+    sid: str
+
+
+class DNSZoneLadderDeleteEvent(Event):
+    type: Literal["delete_ladder"] = "delete_ladder"
     sid: str
 
 
@@ -41,7 +48,9 @@ class DNSZone:
     def ladder_sizes(self) -> dict[str, int]:
         return {sid: ladder.size for sid, ladder in self._ladders.items()}
 
-    def get_random_rrset(self, rrset_type: str | None = None, seed: str | None = None) -> tuple[str, str] | None:
+    def get_random_rrset(
+        self, rrset_type: str | None = None, seed: str | None = None
+    ) -> tuple[str, str] | None:
         return self._ladder_strat.get_random_rrset(rrset_type, seed)
 
     def update_rrsets(
@@ -61,6 +70,16 @@ class DNSZone:
                     self._ladders[sid] = ladder
 
                     self._log(DNSZoneLadderAddEvent(timestamp=dt, sid=sid))
+
+                case StrategyDecisionDeleteLadder(sid=sid):
+                    if sid not in self._ladders:
+                        raise RuntimeError(
+                            f"Strategy error: Ladder {sid} not found to delete"
+                        )
+
+                    del self._ladders[sid]
+
+                    self._log(DNSZoneLadderDeleteEvent(timestamp=dt, sid=sid))
 
                 case StrategyDecisionAddLeaves(
                     sid=sid,

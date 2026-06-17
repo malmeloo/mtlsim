@@ -16,13 +16,23 @@ class StrategyDecisionCreateLadder:
 
 
 @dataclass(frozen=True, slots=True)
+class StrategyDecisionDeleteLadder:
+    sid: str
+    type: Literal["delete_ladder"] = "delete_ladder"
+
+
+@dataclass(frozen=True, slots=True)
 class StrategyDecisionAddLeaves:
     sid: str
     rrsets: list[RRSet]
     type: Literal["add_leaves"] = "add_leaves"
 
 
-type StrategyDecision = StrategyDecisionCreateLadder | StrategyDecisionAddLeaves
+type StrategyDecision = (
+    StrategyDecisionCreateLadder
+    | StrategyDecisionDeleteLadder
+    | StrategyDecisionAddLeaves
+)
 
 
 class BaseLadderStrategy(ABC):

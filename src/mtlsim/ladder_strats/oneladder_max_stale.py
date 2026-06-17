@@ -7,6 +7,7 @@ from ._base import (
     BaseLadderStrategy,
     StrategyDecisionAddLeaves,
     StrategyDecisionCreateLadder,
+    StrategyDecisionDeleteLadder,
 )
 
 
@@ -38,6 +39,9 @@ class OneLadderMaxStaleStrategy(BaseLadderStrategy):
             self._cur_ladder_sid is None
             or self._cur_stale_count >= self._max_stale_count
         ):
+            if self._cur_ladder_sid is not None:
+                yield StrategyDecisionDeleteLadder(sid=self._cur_ladder_sid)
+
             self._cur_ladder_sid = str(uuid.uuid4())
 
             # create new ladder and migrate existing rrsets to it
