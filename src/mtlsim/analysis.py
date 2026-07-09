@@ -4,7 +4,7 @@ from pathlib import Path
 from pydantic import BaseModel
 
 from .resolver import DNSResolverQueryErrorEvent, DNSResolverQueryEvent
-from .zone import DNSZoneLadderAddEvent, DNSZoneRRSetAddEvent
+from .zone import DNSZoneLadderAddEvent, DNSZoneLadderDeleteEvent, DNSZoneRRSetAddEvent
 
 
 class AnalysisResult(BaseModel):
@@ -22,6 +22,7 @@ type Event = (
     DNSResolverQueryErrorEvent
     | DNSResolverQueryEvent
     | DNSZoneLadderAddEvent
+    | DNSZoneLadderDeleteEvent
     | DNSZoneRRSetAddEvent
 )
 
@@ -29,6 +30,7 @@ _EVENTS: tuple[type[Event], ...] = (
     DNSResolverQueryErrorEvent,
     DNSResolverQueryEvent,
     DNSZoneLadderAddEvent,
+    DNSZoneLadderDeleteEvent,
     DNSZoneRRSetAddEvent,
 )
 
@@ -44,7 +46,9 @@ def _parse_line(line: str) -> Event:
 
 
 def analyze_log(
-    log_file: Path, run_name: str, timestamp: datetime | None,
+    log_file: Path,
+    run_name: str,
+    timestamp: datetime | None,
 ) -> AnalysisResult:
     result = AnalysisResult(
         run_name=run_name,
@@ -80,6 +84,8 @@ def analyze_log(
 
                     last_fullsig_time = event.timestamp.timestamp()
                     fullsig_query_count = 0
+            elif isinstance(event, DNSZoneLadderDeleteEvent):
+                result.ladder_sizes[event.sid].append((event.timestamp, 0))
             elif isinstance(event, DNSResolverQueryErrorEvent):  # pyright: ignore[reportUnnecessaryIsInstance]
                 # for now we just ignore these, but maybe in the future we want to track them as well
                 pass
