@@ -1,7 +1,10 @@
 [project]
 name = "mtlsim"
 version = "0.1.0"
-description = ""
+description = "Simulator for Merkle Tree Ladder mode in DNSSEC"
+readme = "README.md"
+authors = [{ name = "Mike Almeloo", email = "git@mikealmel.ooo" }]
+license-files = ["LICENSE"]
 requires-python = ">=3.13"
 dependencies = [
     "click>=8.4.1",
