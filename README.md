@@ -11,7 +11,7 @@ Several ladder management strategies are included out of the box. However, mtlsi
 
 ## Paper
 
-mtlsim was written as part of Mike Almeloo's Master's thesis at the University of Twente. The associated paper, "Evaluating MTL Mode Parameters in Real-world Scenarios", can be found [here](#).
+mtlsim was written as part of Mike Almeloo's Master's thesis at the University of Twente. The associated paper, "Evaluating MTL Mode Parameters in Real-world Scenarios", can be found [here](https://purl.utwente.nl/essays/111423).
 
 ## Documentation
 
